@@ -3,13 +3,36 @@ const router = express.Router();
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
 const SECRET_KEY = process.env.SECRET_KEY;
-
 
 router.get('/', (req, res) => {
     res.json({ message: "Ruta de login activa" });
 });
+
+router.post('/user', (req, res) => {
+    const { email } = req.body;  
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email es requerido' });
+    }
+
+    const sqlVault = 'SELECT * FROM X9EXPVAULT WHERE X9VAULT_EMAIL = ?'; 
+    db.query(sqlVault, [email], (err, vaultResults) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+
+        if (vaultResults.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const user = vaultResults[0];
+        return res.json({
+            JWT: user.X9VAULT_PASSWORD,  
+        });
+    });
+});
+
 
 router.post('/', (req, res) => {
     const { email, password } = req.body;
@@ -18,47 +41,48 @@ router.post('/', (req, res) => {
         return res.status(400).json({ error: 'Email y contraseña son requeridos' });
     }
 
-
-    const sqlUser = 'SELECT * FROM x9expmain WHERE X9_EMAIL = ?';
-    db.query(sqlUser, [email], (err, userResults) => {
+    const sqlVault = 'SELECT * FROM X9EXPVAULT WHERE X9VAULT_EMAIL = ?';
+    db.query(sqlVault, [email], async (err, vaultResults) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        if (userResults.length === 0) {
-            return res.status(401).json({ error: 'Usuario no encontrado' });
-        }
 
-        const user = userResults[0];
-        const userDNI = user.X9_DNI;
-
-        const sqlCred = 'SELECT X9VAULT_PASSWORD FROM X9EXPVAULT WHERE X9_DNI = ?';
-        db.query(sqlCred, [userDNI], async (err, credResults) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-            if (credResults.length === 0) {
-                return res.status(401).json({ error: 'Credenciales no encontradas' });
-            }
-
-            const hashedPassword = credResults[0].X9VAULT_PASSWORD;
-
+        if (vaultResults.length === 0) {
+            bcrypt.hash(password, 10, (err, hashedPassword) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error al cifrar la contraseña' });
+                }
+                const sqlInsertVault = 'INSERT INTO X9EXPVAULT (X9VAULT_EMAIL, X9VAULT_PASSWORD) VALUES (?, ?)';
+                db.query(sqlInsertVault, [email, hashedPassword], (err, insertResult) => {
+                    if (err) {
+                        return res.status(500).json({ error: err.message });
+                    }
+                    const sqlInsertMain = 'INSERT IGNORE INTO X9EXPMAIN (X9_EMAIL) VALUES (?)';
+                    db.query(sqlInsertMain, [email], (err, mainResult) => {
+                        if (err) {
+                            return res.status(500).json({ error: err.message });
+                        }
+                        const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '2h' });
+                        return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
+                    });
+                });
+            });
+        } else {
+            const user = vaultResults[0];
+            const hashedPassword = user.X9VAULT_PASSWORD;
             const match = await bcrypt.compare(password, hashedPassword);
             if (!match) {
                 return res.status(401).json({ error: 'Contraseña incorrecta' });
             }
-
-            const token = jwt.sign(
-                {
-                    dni: user.X9_DNI,
-                    email: user.X9_EMAIL,
-                    name: user.X9_NAME
-                },
-                SECRET_KEY,
-                { expiresIn: '2h' }
-            );
-
-            res.json({ message: 'Inicio de sesión exitoso', token });
-        });
+            const token = jwt.sign({ email: user.X9VAULT_EMAIL }, SECRET_KEY, { expiresIn: '2h' });
+            const sqlInsertMain = 'INSERT IGNORE INTO X9EXPMAIN (X9_EMAIL) VALUES (?)';
+            db.query(sqlInsertMain, [email], (err, mainResult) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                return res.json({ message: 'Inicio de sesión exitoso', token });
+            });
+        }
     });
 });
 
