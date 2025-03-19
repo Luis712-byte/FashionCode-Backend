@@ -34,6 +34,37 @@ router.post('/user', (req, res) => {
 });
 
 
+router.post('/signin', (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+    }
+
+    const sql = 'SELECT * FROM X9EXPVAULT WHERE X9VAULT_EMAIL = ?';
+    db.query(sql, [email], async (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error en el servidor' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const user = results[0];
+
+        const match = await bcrypt.compare(password, user.X9VAULT_PASSWORD);
+        if (!match) {
+            return res.status(401).json({ error: 'Contraseña incorrecta' });
+        }
+
+        const token = jwt.sign({ email: user.X9VAULT_EMAIL }, SECRET_KEY, { expiresIn: '2h' });
+
+        return res.json({ message: 'Inicio de sesión exitoso', token });
+    });
+});
+
+
 router.post('/', (req, res) => {
     const { email, password } = req.body;
 
