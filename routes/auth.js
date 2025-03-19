@@ -47,42 +47,29 @@ router.post('/', (req, res) => {
             return res.status(500).json({ error: err.message });
         }
 
-        if (vaultResults.length === 0) {
-            bcrypt.hash(password, 10, (err, hashedPassword) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Error al cifrar la contraseña' });
-                }
-                const sqlInsertVault = 'INSERT INTO X9EXPVAULT (X9VAULT_EMAIL, X9VAULT_PASSWORD) VALUES (?, ?)';
-                db.query(sqlInsertVault, [email, hashedPassword], (err, insertResult) => {
-                    if (err) {
-                        return res.status(500).json({ error: err.message });
-                    }
-                    const sqlInsertMain = 'INSERT IGNORE INTO X9EXPMAIN (X9_EMAIL) VALUES (?)';
-                    db.query(sqlInsertMain, [email], (err, mainResult) => {
-                        if (err) {
-                            return res.status(500).json({ error: err.message });
-                        }
-                        const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '2h' });
-                        return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
-                    });
-                });
-            });
-        } else {
-            const user = vaultResults[0];
-            const hashedPassword = user.X9VAULT_PASSWORD;
-            const match = await bcrypt.compare(password, hashedPassword);
-            if (!match) {
-                return res.status(401).json({ error: 'Contraseña incorrecta' });
+        if (vaultResults.length > 0) {
+            return res.status(400).json({ error: 'El correo ya está registrado. Intenta con otro.' });
+        }
+
+        bcrypt.hash(password, 10, (err, hashedPassword) => {
+            if (err) {
+                return res.status(500).json({ error: 'Error al cifrar la contraseña' });
             }
-            const token = jwt.sign({ email: user.X9VAULT_EMAIL }, SECRET_KEY, { expiresIn: '2h' });
-            const sqlInsertMain = 'INSERT IGNORE INTO X9EXPMAIN (X9_EMAIL) VALUES (?)';
-            db.query(sqlInsertMain, [email], (err, mainResult) => {
+            const sqlInsertVault = 'INSERT INTO X9EXPVAULT (X9VAULT_EMAIL, X9VAULT_PASSWORD) VALUES (?, ?)';
+            db.query(sqlInsertVault, [email, hashedPassword], (err, insertResult) => {
                 if (err) {
                     return res.status(500).json({ error: err.message });
                 }
-                return res.json({ message: 'Inicio de sesión exitoso', token });
+                const sqlInsertMain = 'INSERT IGNORE INTO X9EXPMAIN (X9_EMAIL) VALUES (?)';
+                db.query(sqlInsertMain, [email], (err, mainResult) => {
+                    if (err) {
+                        return res.status(500).json({ error: err.message });
+                    }
+                    const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '2h' });
+                    return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
+                });
             });
-        }
+        });
     });
 });
 
