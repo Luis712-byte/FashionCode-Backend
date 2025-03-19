@@ -91,10 +91,10 @@ router.post("/", (req, res) => {
                     }
 
                     const sqlCred = `
-                        INSERT INTO X9EXPVAULT (X9_DNI, X9VAULT_PASSWORD)
-                        VALUES (?, ?)
+                        INSERT INTO X9EXPVAULT (X9_DNI, X9VAULT_PASSWORD, X9VAULT_EMAIL )
+                        VALUES (?, ?, ?)
                     `;
-                    db.query(sqlCred, [X9_DNI, hashedPassword], (err, credResult) => {
+                    db.query(sqlCred, [X9_DNI, hashedPassword , X9_EMAIL], (err, credResult) => {
                         if (err) {
                             return res.status(500).json({ error: err.message });
                         }
