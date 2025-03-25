@@ -117,7 +117,7 @@ router.post('/', (req, res) => {
                                 token
                             });
                         });
-                    return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
+                    // return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
                 });
             });
         });

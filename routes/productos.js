@@ -22,16 +22,19 @@ router.get("/", (req, res) => {
 });
 
 // ✅ Subir un producto con imagen
-router.post("/", (req, res) => {
-    const { nombre, descripcion, precio, tipo, calificacion, inventario, imagen } = req.body;
-    // const imagen = req.file ? req.file.filename : null;
+router.post("/", upload.array("imagen", 2), (req, res) => {
+    console.log("Archivos recibidos:", req.files);
+    const { nombre, descripcion, precio, tipo, calificacion, inventario } = req.body;
+    const imagen1 = req.files && req.files[0] ? req.files[0].filename : "default-image.jpg";
+    const imagen2 = req.files && req.files[1] ? req.files[1].filename : "default-image.jpg";
+
 
     if (!nombre || !descripcion || !precio || !tipo || !inventario || !calificacion) {
         return res.status(400).json({ error: "Nombre, tipo, precio, descripción, inventario y calificación son obligatorios" });
     }
 
-    const sql = "INSERT INTO X9EMPFILE (X9FILE_NAME, X9FILE_TYPE, X9FILE_DESCRIPTION, X9FILE_PRICE, X9FILE_RATING, X9FILE_STOCK, X9FILE_IMAGE) VALUES (?, ?, ?, ?, ?, ?, ?)";
-    db.query(sql, [nombre, tipo, descripcion, precio, calificacion, inventario, imagen], (err, result) => {
+    const sql = "INSERT INTO X9EMPFILE (X9FILE_NAME, X9FILE_TYPE, X9FILE_DESCRIPTION, X9FILE_PRICE, X9FILE_RATING, X9FILE_STOCK, X9FILE_IMAGE1, X9FILE_IMAGE2) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    db.query(sql, [nombre, tipo, descripcion, precio, calificacion, inventario, imagen1, imagen2], (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: "Producto agregado correctamente", id: result.insertId });
     });

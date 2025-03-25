@@ -33,3 +33,6 @@ out/
 *.swp
 *.swo
 Thumbs.db
+
+# Carpeta de imágenes subidas
+uploads/
