@@ -4,8 +4,15 @@ const db = require("../config/db");
 const multer = require("multer");
 const path = require("path");
 
+// ✅ Asegurarse de que exista la carpeta uploads
+const uploadDir = "uploads";
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// ✅ Configuración de multer
 const storage = multer.diskStorage({
-    destination: "uploads/",
+    destination: uploadDir,
     filename: (req, file, cb) => {
         cb(null, Date.now() + path.extname(file.originalname));
     },

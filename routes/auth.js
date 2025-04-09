@@ -102,46 +102,8 @@ router.post('/', (req, res) => {
                         return res.status(500).json({ error: err.message });
                     }
                     const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '2h' });
-                    enviarCorreo(email, 'Bienvenido a nuestra plataforma')
-                        .then(() => {
-                            return res.json({
-                                message: 'Usuario registrado y autenticado exitosamente. Correo enviado correctamente.',
-                                token
-                            });
-                        })
-                        .catch(error => {
-                            console.error('Error enviando correo:', error);
-                            return res.status(500).json({
-                                message: 'Usuario registrado, pero hubo un error al enviar el correo.',
-                                error: error.message,
-                                token
-                            });
-                        });
-                    // return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
-                });
-            });
-        });
-    });
-});
 
-// ✅ Ruta para enviar correo
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
-async function enviarCorreo(destinatario, asunto) {
-    try {
-        const info = await transporter.sendMail({
-            from: '"FashionCode Soporte" <no-reply@fashioncode.com>',
-            to: destinatario,
-            subject: 'Bienvenido a FashionCode',
-            text: 'Gracias por registrarte en FashionCode. ¡Esperamos verte pronto!',
-            html: `
-                <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+                    const htmlContent = ` <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
                     <div style="
                         max-width: 600px;
                         margin: auto;
@@ -168,8 +130,128 @@ async function enviarCorreo(destinatario, asunto) {
                             </p>
                         </div>
                     </div>
-                </div>
-            `
+                </div>`;
+
+                    enviarCorreo(email, 'Bienvenido a nuestra plataforma', htmlContent)
+                        .then(() => {
+                            return res.json({
+                                message: 'Usuario registrado y autenticado exitosamente. Correo enviado correctamente.',
+                                token
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error enviando correo:', error);
+                            return res.status(500).json({
+                                message: 'Usuario registrado, pero hubo un error al enviar el correo.',
+                                error: error.message,
+                                token
+                            });
+                        });
+                    // return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
+                });
+            });
+        });
+    });
+});
+
+// ✅ Ruta: Solicitar enlace para restablecer contraseña
+router.post('/forgot-password', (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ error: 'El email es requerido' });
+    }
+
+    const sql = 'SELECT * FROM X9EXPVAULT WHERE X9VAULT_EMAIL = ?';
+    db.query(sql, [email], (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '15m' });
+
+        const resetLink = `http://${process.env.FRONTEND_URL}/reset-password/${token}`;
+
+        const htmlContent = `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 40px;">
+            <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 30px;">
+            <h2 style="color: #333;">🔐 Recuperación de contraseña</h2>
+            <p style="color: #555;">Hola,</p>
+            <p style="color: #555;">Recibimos una solicitud para restablecer tu contraseña. Para continuar, haz clic en el botón a continuación:</p>
+            <div style="text-align: center; margin: 30px 0;">
+             <a href="${resetLink}" style="background-color: #e91e63; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Restablecer contraseña</a>
+            </div>
+            <p style="color: #777; font-size: 14px;">⚠️ Este enlace expirará en 15 minutos por razones de seguridad.</p>
+            <p style="color: #777; font-size: 14px;">Si no realizaste esta solicitud, puedes ignorar este mensaje. Tu contraseña actual seguirá siendo válida.</p>
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+            <p style="color: #bbb; font-size: 12px; text-align: center;">Este es un mensaje automático. Por favor, no respondas a este correo.</p>
+            </div>
+        </div>
+        `;
+
+
+        enviarCorreo(email, 'Restablece tu contraseña en FashionCode', htmlContent)
+            .then(response => {
+                return res.json({ message: 'Correo de restablecimiento enviado exitosamente.' });
+            })
+            .catch(err => {
+                return res.status(500).json({ error: 'Error al enviar el correo.' });
+            });
+    });
+});
+
+
+// ✅ Ruta: Restablecer contraseña
+router.post('/reset-password', (req, res) => {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+        return res.status(400).json({ error: 'Token y nueva contraseña son requeridos' });
+    }
+
+    jwt.verify(token, SECRET_KEY, (err, decoded) => {
+        if (err) {
+            return res.status(400).json({ error: 'Token inválido o expirado' });
+        }
+
+        const { email } = decoded;
+
+        bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
+            if (err) {
+                return res.status(500).json({ error: 'Error al cifrar la contraseña' });
+            }
+
+            const sqlUpdate = 'UPDATE X9EXPVAULT SET X9VAULT_PASSWORD = ? WHERE X9VAULT_EMAIL = ?';
+            db.query(sqlUpdate, [hashedPassword, email], (err, result) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                return res.json({ message: 'Contraseña actualizada correctamente' });
+            });
+        });
+    });
+});
+
+// ✅ Ruta para enviar correo
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+async function enviarCorreo(destinatario, asunto, htmlContent) {
+    try {
+        const info = await transporter.sendMail({
+            from: '"FashionCode Soporte" <no-reply@fashioncode.com>',
+            to: destinatario,
+            subject: asunto,
+            text: 'Gracias por registrarte en FashionCode. ¡Esperamos verte pronto!',
+            html: htmlContent,
         });
 
         console.log('Correo enviado con éxito: ' + info.messageId);
