@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../config/db");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 // ✅ Asegurarse de que exista la carpeta uploads
 const uploadDir = "uploads";
