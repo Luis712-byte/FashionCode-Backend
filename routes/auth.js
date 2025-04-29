@@ -45,28 +45,51 @@ router.post('/signin', (req, res) => {
         return res.status(400).json({ error: 'Email y contraseña son requeridos' });
     }
 
-    const sql = 'SELECT * FROM X9EXPVAULT WHERE X9VAULT_EMAIL = ?';
-    db.query(sql, [email], async (err, results) => {
+    const sqlVault = 'SELECT * FROM X9EXPVAULT WHERE X9VAULT_EMAIL = ?';
+    db.query(sqlVault, [email], async (err, resultsVault) => {
         if (err) {
-            return res.status(500).json({ error: 'Error en el servidor' });
+            return res.status(500).json({ error: 'Error en el servidor (Vault)' });
         }
 
-        if (results.length === 0) {
+        if (resultsVault.length === 0) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        const user = results[0];
+        const userVault = resultsVault[0];
 
-        const match = await bcrypt.compare(password, user.X9VAULT_PASSWORD);
+        const match = await bcrypt.compare(password, userVault.X9VAULT_PASSWORD);
         if (!match) {
             return res.status(401).json({ error: 'Contraseña incorrecta' });
         }
 
-        const token = jwt.sign({ email: user.X9VAULT_EMAIL }, SECRET_KEY, { expiresIn: '2h' });
+        const sqlMain = 'SELECT X9_ROL FROM X9EXPMAIN WHERE X9_EMAIL = ?';
+        db.query(sqlMain, [email], (err, resultsMain) => {
+            if (err) {
+                return res.status(500).json({ error: 'Error en el servidor (Main)' });
+            }
 
-        return res.json({ message: 'Inicio de sesión exitoso', token , email });
+            if (resultsMain.length === 0) {
+                return res.status(404).json({ error: 'Rol no encontrado para el usuario' });
+            }
+
+            const userMain = resultsMain[0];
+
+            const token = jwt.sign(
+                { email: userVault.X9VAULT_EMAIL, rol: userMain.X9_ROL },
+                SECRET_KEY,
+                { expiresIn: '2h' }
+            );
+
+            return res.json({
+                message: 'Inicio de sesión exitoso',
+                token,
+                email: userVault.X9VAULT_EMAIL,
+                rol: userMain.X9_ROL
+            });
+        });
     });
 });
+
 
 // ✅ Ruta para registrar usuario
 router.post('/', (req, res) => {
