@@ -36,3 +36,5 @@ Thumbs.db
 
 # Carpeta de imágenes subidas
 uploads/
+config/serviceAccountKey.json
+

@@ -5,7 +5,6 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
-// ✅ Clave secreta para JWT
 const SECRET_KEY = process.env.SECRET_KEY;
 
 // ✅ Ruta de prueba
@@ -65,7 +64,7 @@ router.post('/signin', (req, res) => {
 
         const token = jwt.sign({ email: user.X9VAULT_EMAIL }, SECRET_KEY, { expiresIn: '2h' });
 
-        return res.json({ message: 'Inicio de sesión exitoso', token });
+        return res.json({ message: 'Inicio de sesión exitoso', token , email });
     });
 });
 
@@ -147,7 +146,7 @@ router.post('/', (req, res) => {
                                 token
                             });
                         });
-                    // return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
+                    return res.json({ message: 'Usuario registrado y autenticado exitosamente', token });
                 });
             });
         });
@@ -173,7 +172,7 @@ router.post('/forgot-password', (req, res) => {
 
         const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '15m' });
 
-        const resetLink = `http://${process.env.FRONTEND_URL}/reset-password/${token}`;
+        const resetLink = `https://${process.env.FRONTEND_URL}/reset-password/${token}`;
 
         const htmlContent = `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 40px;">
